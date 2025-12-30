@@ -1,0 +1,73 @@
+{
+    "common": {
+        "search": "Search...",
+        "save": "Save",
+        "cancel": "Cancel",
+        "delete": "Delete",
+        "edit": "Edit",
+        "create": "Create",
+        "loading": "Loading...",
+        "success": "Success",
+        "error": "Error",
+        "confirm": "Confirm"
+    },
+    "nav": {
+        "dashboard": "Dashboard",
+        "organizations": "Organizations",
+        "projects": "Projects",
+        "users": "Users",
+        "auditLogs": "Audit Logs",
+        "settings": "Settings"
+    },
+    "auth": {
+        "login": "Sign In",
+        "logout": "Logout",
+        "register": "Sign Up",
+        "email": "Email",
+        "password": "Password",
+        "forgotPassword": "Forgot Password?",
+        "noAccount": "Don't have an account?",
+        "hasAccount": "Already have an account?"
+    },
+    "dashboard": {
+        "welcomeBack": "Welcome back, {name}!",
+        "overview": "Here's an overview of your workspace.",
+        "organizations": "Organizations",
+        "projects": "Projects",
+        "users": "Users",
+        "yourRole": "Your Role",
+        "quickActions": "Quick Actions",
+        "viewOrganizations": "View Organizations",
+        "viewProjects": "View Projects",
+        "manageUsers": "Manage Users",
+        "recentActivity": "Recent Activity"
+    },
+    "settings": {
+        "title": "Settings",
+        "subtitle": "Customize your experience",
+        "appearance": "Appearance",
+        "themeMode": "Theme Mode",
+        "light": "Light",
+        "dark": "Dark",
+        "system": "System",
+        "accentColor": "Accent Color",
+        "preview": "Preview",
+        "language": "Language",
+        "account": "Account"
+    },
+    "activity": {
+        "createdOrganization": "Created a new organization",
+        "updatedOrganization": "Updated an organization",
+        "deletedOrganization": "Deleted an organization",
+        "createdProject": "Created a new project",
+        "updatedProject": "Updated a project",
+        "deletedProject": "Deleted a project",
+        "noActivity": "No recent activity"
+    },
+    "search": {
+        "placeholder": "Search organizations, projects...",
+        "noResults": "No results found",
+        "organizations": "Organizations",
+        "projects": "Projects"
+    }
+}

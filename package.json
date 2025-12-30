@@ -1,0 +1,48 @@
+{
+  "name": "saas-starter",
+  "type": "module",
+  "private": true,
+  "scripts": {
+    "build": "nuxt build",
+    "dev": "nuxt dev",
+    "generate": "nuxt generate",
+    "preview": "nuxt preview",
+    "postinstall": "nuxt prepare",
+    "db:create": "tsx server/db/create-db.ts",
+    "db:generate": "drizzle-kit generate",
+    "db:migrate": "drizzle-kit migrate",
+    "db:push": "drizzle-kit push",
+    "db:studio": "drizzle-kit studio",
+    "db:seed": "tsx server/db/seed/index.ts",
+    "db:setup": "npm run db:create && npm run db:push && npm run db:seed"
+  },
+  "dependencies": {
+    "@bg-dev/nuxt-naiveui": "^1.0.2",
+    "@css-render/vue3-ssr": "^0.15.14",
+    "@nuxtjs/i18n": "^10.2.1",
+    "@scalar/nuxt": "^0.4.11",
+    "@vueuse/core": "^14.1.0",
+    "bcrypt": "^5.1.1",
+    "chart.js": "^4.5.1",
+    "dotenv": "^17.2.3",
+    "drizzle-orm": "^0.38.3",
+    "jose": "^5.9.6",
+    "lucide-vue-next": "^0.561.0",
+    "naive-ui": "^2.40.3",
+    "nuxt": "^4.2.2",
+    "pg": "^8.13.1",
+    "vue": "^3.5.25",
+    "vue-chartjs": "^5.3.3",
+    "vue-router": "^4.6.4",
+    "zod": "^3.24.1"
+  },
+  "devDependencies": {
+    "@faker-js/faker": "^9.3.0",
+    "@types/bcrypt": "^5.0.2",
+    "@types/pg": "^8.11.10",
+    "drizzle-kit": "^0.30.1",
+    "tsx": "^4.19.2",
+    "typescript": "^5.7.2",
+    "vue-tsc": "^3.1.8"
+  }
+}

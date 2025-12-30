@@ -1,0 +1,73 @@
+{
+    "common": {
+        "search": "搜索...",
+        "save": "保存",
+        "cancel": "取消",
+        "delete": "删除",
+        "edit": "编辑",
+        "create": "创建",
+        "loading": "加载中...",
+        "success": "成功",
+        "error": "错误",
+        "confirm": "确认"
+    },
+    "nav": {
+        "dashboard": "仪表板",
+        "organizations": "组织",
+        "projects": "项目",
+        "users": "用户",
+        "auditLogs": "审计日志",
+        "settings": "设置"
+    },
+    "auth": {
+        "login": "登录",
+        "logout": "退出",
+        "register": "注册",
+        "email": "邮箱",
+        "password": "密码",
+        "forgotPassword": "忘记密码？",
+        "noAccount": "没有账号？",
+        "hasAccount": "已有账号？"
+    },
+    "dashboard": {
+        "welcomeBack": "欢迎回来，{name}！",
+        "overview": "这是您工作区的概览。",
+        "organizations": "组织",
+        "projects": "项目",
+        "users": "用户",
+        "yourRole": "您的角色",
+        "quickActions": "快捷操作",
+        "viewOrganizations": "查看组织",
+        "viewProjects": "查看项目",
+        "manageUsers": "管理用户",
+        "recentActivity": "最近活动"
+    },
+    "settings": {
+        "title": "设置",
+        "subtitle": "自定义您的体验",
+        "appearance": "外观",
+        "themeMode": "主题模式",
+        "light": "浅色",
+        "dark": "深色",
+        "system": "跟随系统",
+        "accentColor": "强调色",
+        "preview": "预览",
+        "language": "语言",
+        "account": "账户"
+    },
+    "activity": {
+        "createdOrganization": "创建了新组织",
+        "updatedOrganization": "更新了组织",
+        "deletedOrganization": "删除了组织",
+        "createdProject": "创建了新项目",
+        "updatedProject": "更新了项目",
+        "deletedProject": "删除了项目",
+        "noActivity": "暂无活动记录"
+    },
+    "search": {
+        "placeholder": "搜索组织、项目...",
+        "noResults": "未找到结果",
+        "organizations": "组织",
+        "projects": "项目"
+    }
+}

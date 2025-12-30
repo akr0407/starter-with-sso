@@ -1,0 +1,73 @@
+{
+    "common": {
+        "search": "Cari...",
+        "save": "Simpan",
+        "cancel": "Batal",
+        "delete": "Hapus",
+        "edit": "Edit",
+        "create": "Buat",
+        "loading": "Memuat...",
+        "success": "Berhasil",
+        "error": "Kesalahan",
+        "confirm": "Konfirmasi"
+    },
+    "nav": {
+        "dashboard": "Dasbor",
+        "organizations": "Organisasi",
+        "projects": "Proyek",
+        "users": "Pengguna",
+        "auditLogs": "Log Audit",
+        "settings": "Pengaturan"
+    },
+    "auth": {
+        "login": "Masuk",
+        "logout": "Keluar",
+        "register": "Daftar",
+        "email": "Email",
+        "password": "Kata Sandi",
+        "forgotPassword": "Lupa Kata Sandi?",
+        "noAccount": "Belum punya akun?",
+        "hasAccount": "Sudah punya akun?"
+    },
+    "dashboard": {
+        "welcomeBack": "Selamat datang kembali, {name}!",
+        "overview": "Berikut gambaran umum ruang kerja Anda.",
+        "organizations": "Organisasi",
+        "projects": "Proyek",
+        "users": "Pengguna",
+        "yourRole": "Peran Anda",
+        "quickActions": "Aksi Cepat",
+        "viewOrganizations": "Lihat Organisasi",
+        "viewProjects": "Lihat Proyek",
+        "manageUsers": "Kelola Pengguna",
+        "recentActivity": "Aktivitas Terkini"
+    },
+    "settings": {
+        "title": "Pengaturan",
+        "subtitle": "Sesuaikan pengalaman Anda",
+        "appearance": "Tampilan",
+        "themeMode": "Mode Tema",
+        "light": "Terang",
+        "dark": "Gelap",
+        "system": "Sistem",
+        "accentColor": "Warna Aksen",
+        "preview": "Pratinjau",
+        "language": "Bahasa",
+        "account": "Akun"
+    },
+    "activity": {
+        "createdOrganization": "Membuat organisasi baru",
+        "updatedOrganization": "Memperbarui organisasi",
+        "deletedOrganization": "Menghapus organisasi",
+        "createdProject": "Membuat proyek baru",
+        "updatedProject": "Memperbarui proyek",
+        "deletedProject": "Menghapus proyek",
+        "noActivity": "Tidak ada aktivitas terkini"
+    },
+    "search": {
+        "placeholder": "Cari organisasi, proyek...",
+        "noResults": "Tidak ada hasil ditemukan",
+        "organizations": "Organisasi",
+        "projects": "Proyek"
+    }
+}
