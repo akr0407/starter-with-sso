@@ -50,10 +50,21 @@ export default defineNuxtConfig({
     // Database
     databaseUrl: process.env.DATABASE_URL || 'postgresql://postgres:postgres@localhost:5432/saas_starter',
 
+    // SSO (server-side only)
+    sso: {
+      clientSecret: process.env.SSO_CLIENT_SECRET || '',
+    },
+
     // Public keys (exposed to client)
     public: {
       appName: 'SaaS Starter',
       apiBase: '/api/v1',
+      sso: {
+        baseUrl: process.env.SSO_BASE_URL || 'https://sso.yourdomain.com',
+        clientId: process.env.SSO_CLIENT_ID || '',
+        redirectUri: process.env.SSO_REDIRECT_URI || 'http://localhost:3000/auth/callback',
+        scopes: ['openid', 'profile', 'email'],
+      },
     },
   },
 

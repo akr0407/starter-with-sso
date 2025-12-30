@@ -1,3 +1,6 @@
+import { generatePKCE, generateUrlSafeString } from '~/utils/pkce'
+import { buildAuthUrl, exchangeCodeForTokens, fetchUserInfo, refreshSSOToken, buildLogoutUrl } from '~/utils/sso-auth'
+
 // User preferences type
 interface UserPreferences {
     theme?: {
@@ -15,11 +18,33 @@ interface User {
     preferences?: UserPreferences
 }
 
+// SSO User type (from SSO provider)
+interface SSOUser {
+    id: string
+    email: string
+    name: string
+    employeeId?: string
+    department?: string
+    position?: string
+    avatarUrl?: string
+    roleId?: string
+    roleName?: string
+}
+
 interface AuthState {
     user: User | null
     accessToken: string | null
     isImpersonating: boolean
     impersonatedBy: number | null
+    // SSO specific
+    ssoUser: SSOUser | null
+    ssoTokens: {
+        accessToken: string
+        refreshToken: string
+        idToken: string
+        expiresAt: number
+    } | null
+    isSSOAuth: boolean
 }
 
 const authState = reactive<AuthState>({
@@ -27,13 +52,22 @@ const authState = reactive<AuthState>({
     accessToken: null,
     isImpersonating: false,
     impersonatedBy: null,
+    ssoUser: null,
+    ssoTokens: null,
+    isSSOAuth: false,
 })
 
 export function useAuth() {
     const config = useRuntimeConfig()
     const router = useRouter()
 
-    const isAuthenticated = computed(() => !!authState.accessToken && !!authState.user)
+    const isAuthenticated = computed(() => {
+        // Check both local and SSO authentication
+        if (authState.isSSOAuth) {
+            return !!authState.ssoTokens && !!authState.ssoUser
+        }
+        return !!authState.accessToken && !!authState.user
+    })
     const isAdmin = computed(() => ['admin', 'superadmin'].includes(authState.user?.role ?? ''))
     const isSuperadmin = computed(() => authState.user?.role === 'superadmin')
 
@@ -41,12 +75,245 @@ export function useAuth() {
     async function initialize() {
         if (import.meta.server) return
 
+        // Check for SSO auth first
+        const ssoUserStr = localStorage.getItem('sso_user')
+        const ssoTokensStr = localStorage.getItem('sso_tokens')
+
+        if (ssoUserStr && ssoTokensStr) {
+            try {
+                authState.ssoUser = JSON.parse(ssoUserStr)
+                authState.ssoTokens = JSON.parse(ssoTokensStr)
+                authState.isSSOAuth = true
+
+                // Check if SSO token is expired
+                if (authState.ssoTokens && Date.now() >= authState.ssoTokens.expiresAt) {
+                    // Token expired, try to refresh or logout
+                    try {
+                        await refreshSSOTokens()
+                    } catch {
+                        clearSSOAuth()
+                    }
+                }
+                return
+            } catch {
+                clearSSOAuth()
+            }
+        }
+
+        // Fall back to local auth
         const storedToken = localStorage.getItem('accessToken')
         if (storedToken) {
             authState.accessToken = storedToken
             await fetchCurrentUser()
         }
     }
+
+    // =============== SSO Authentication Methods ===============
+
+    /**
+     * Initiate SSO login - redirects to SSO provider
+     */
+    async function ssoLogin(returnUrl?: string) {
+        if (import.meta.server) return
+
+        // Generate PKCE challenge (may be null if crypto.subtle unavailable)
+        const pkce = await generatePKCE()
+
+        // Generate state and nonce (alphanumeric only to avoid URL encoding issues)
+        const state = generateUrlSafeString(32)
+        const nonce = generateUrlSafeString(32)
+
+        // Store PKCE and state in sessionStorage
+        if (pkce) {
+            sessionStorage.setItem('pkce_code_verifier', pkce.codeVerifier)
+        }
+        sessionStorage.setItem('oauth_state', state)
+        sessionStorage.setItem('oauth_nonce', nonce)
+        if (returnUrl) {
+            sessionStorage.setItem('return_url', returnUrl)
+        }
+
+        // Build authorization URL
+        const authUrl = buildAuthUrl({
+            baseUrl: config.public.sso.baseUrl,
+            clientId: config.public.sso.clientId,
+            redirectUri: config.public.sso.redirectUri,
+            scopes: config.public.sso.scopes,
+            state,
+            nonce,
+            codeChallenge: pkce?.codeChallenge,
+        })
+
+        // Redirect to SSO
+        window.location.href = authUrl
+    }
+
+    /**
+     * Handle SSO callback after user authenticates
+     */
+    async function handleSSOCallback(code: string, state: string) {
+        if (import.meta.server) return
+
+        // Verify state (decode to handle URL encoding)
+        const savedState = sessionStorage.getItem('oauth_state')
+        const decodedState = decodeURIComponent(state)
+        if (decodedState !== savedState) {
+            console.error('State mismatch:', { received: decodedState, expected: savedState })
+            throw new Error('Invalid state parameter')
+        }
+
+        // Get PKCE verifier
+        const codeVerifier = sessionStorage.getItem('pkce_code_verifier')
+
+        try {
+            // Exchange code for tokens via server-side API (keeps client_secret secure)
+            const tokenResponse = await $fetch<{
+                access_token: string
+                refresh_token: string
+                id_token: string
+                expires_in: number
+            }>('/api/auth/sso/token', {
+                method: 'POST',
+                body: {
+                    code,
+                    redirectUri: config.public.sso.redirectUri,
+                    codeVerifier: codeVerifier || undefined,
+                },
+            })
+
+            // Fetch user info
+            console.log('Token exchange successful, fetching user info...')
+            const userInfo = await fetchUserInfo(
+                config.public.sso.baseUrl,
+                tokenResponse.access_token
+            )
+            console.log('User info received:', userInfo)
+
+            // Prepare SSO user data
+            const ssoUser: SSOUser = {
+                id: userInfo.sub,
+                email: userInfo.email,
+                name: userInfo.name,
+                employeeId: userInfo.employee_id,
+                department: userInfo.department,
+                position: userInfo.position,
+                avatarUrl: userInfo.avatar_url,
+                roleId: userInfo.role_id,
+                roleName: userInfo.role_name,
+            }
+
+            const ssoTokens = {
+                accessToken: tokenResponse.access_token,
+                refreshToken: tokenResponse.refresh_token,
+                idToken: tokenResponse.id_token,
+                expiresAt: Date.now() + tokenResponse.expires_in * 1000,
+            }
+
+            // Save to state
+            authState.ssoUser = ssoUser
+            authState.ssoTokens = ssoTokens
+            authState.isSSOAuth = true
+            console.log('SSO auth state saved:', { ssoUser, isSSOAuth: true })
+
+            // Persist to localStorage
+            localStorage.setItem('sso_user', JSON.stringify(ssoUser))
+            localStorage.setItem('sso_tokens', JSON.stringify(ssoTokens))
+            console.log('SSO data persisted to localStorage')
+
+            // Clean up session storage
+            sessionStorage.removeItem('pkce_code_verifier')
+            sessionStorage.removeItem('oauth_state')
+            sessionStorage.removeItem('oauth_nonce')
+
+            // Redirect to return URL or dashboard
+            const returnUrl = sessionStorage.getItem('return_url') || '/dashboard'
+            sessionStorage.removeItem('return_url')
+            console.log('Redirecting to:', returnUrl)
+
+            await router.push(returnUrl)
+        } catch (error) {
+            console.error('OAuth callback error:', error)
+            throw error
+        }
+    }
+
+    /**
+     * SSO logout
+     */
+    async function ssoLogout() {
+        const idToken = authState.ssoTokens?.idToken
+
+        // Clear local SSO auth
+        clearSSOAuth()
+
+        // Redirect to SSO logout if we have id_token
+        if (idToken && import.meta.client) {
+            const logoutUrl = buildLogoutUrl({
+                baseUrl: config.public.sso.baseUrl,
+                idToken,
+                postLogoutRedirectUri: window.location.origin,
+            })
+            window.location.href = logoutUrl
+        } else {
+            await router.push('/login')
+        }
+    }
+
+    /**
+     * Refresh SSO tokens
+     */
+    async function refreshSSOTokens() {
+        if (!authState.ssoTokens?.refreshToken) {
+            throw new Error('No refresh token available')
+        }
+
+        try {
+            const tokenResponse = await refreshSSOToken({
+                baseUrl: config.public.sso.baseUrl,
+                clientId: config.public.sso.clientId,
+                refreshToken: authState.ssoTokens.refreshToken,
+            })
+
+            const ssoTokens = {
+                accessToken: tokenResponse.access_token,
+                refreshToken: tokenResponse.refresh_token || authState.ssoTokens.refreshToken,
+                idToken: tokenResponse.id_token || authState.ssoTokens.idToken,
+                expiresAt: Date.now() + tokenResponse.expires_in * 1000,
+            }
+
+            authState.ssoTokens = ssoTokens
+            localStorage.setItem('sso_tokens', JSON.stringify(ssoTokens))
+        } catch (error) {
+            console.error('SSO token refresh failed:', error)
+            await ssoLogout()
+            throw error
+        }
+    }
+
+    /**
+     * Clear SSO authentication state
+     */
+    function clearSSOAuth() {
+        authState.ssoUser = null
+        authState.ssoTokens = null
+        authState.isSSOAuth = false
+        localStorage.removeItem('sso_user')
+        localStorage.removeItem('sso_tokens')
+    }
+
+    /**
+     * Ensure SSO token is valid (auto-refresh if needed)
+     */
+    async function ensureValidSSOToken() {
+        if (!authState.ssoTokens) return
+
+        // Refresh 5 minutes before expiry
+        if (Date.now() >= authState.ssoTokens.expiresAt - 5 * 60 * 1000) {
+            await refreshSSOTokens()
+        }
+    }
+
+    // =============== Local Authentication Methods ===============
 
     async function login(email: string, password: string) {
         const response = await $fetch<{
@@ -59,6 +326,7 @@ export function useAuth() {
 
         authState.user = response.user
         authState.accessToken = response.accessToken
+        authState.isSSOAuth = false
         localStorage.setItem('accessToken', response.accessToken)
 
         return response
@@ -75,12 +343,20 @@ export function useAuth() {
 
         authState.user = response.user
         authState.accessToken = response.accessToken
+        authState.isSSOAuth = false
         localStorage.setItem('accessToken', response.accessToken)
 
         return response
     }
 
     async function logout() {
+        // If SSO auth, use SSO logout
+        if (authState.isSSOAuth) {
+            await ssoLogout()
+            return
+        }
+
+        // Local auth logout
         try {
             await $fetch(`${config.public.apiBase}/auth/logout`, {
                 method: 'POST',
@@ -203,15 +479,29 @@ export function useAuth() {
     }
 
     return {
+        // State
         user: computed(() => authState.user),
-        accessToken: computed(() => authState.accessToken),
+        ssoUser: computed(() => authState.ssoUser),
+        accessToken: computed(() => authState.isSSOAuth ? authState.ssoTokens?.accessToken : authState.accessToken),
         userPreferences: computed(() => authState.user?.preferences || {}),
         isAuthenticated,
         isAdmin,
         isSuperadmin,
         isImpersonating: computed(() => authState.isImpersonating),
         impersonatedBy: computed(() => authState.impersonatedBy),
+        isSSOAuth: computed(() => authState.isSSOAuth),
+
+        // Init
         initialize,
+
+        // SSO methods
+        ssoLogin,
+        handleSSOCallback,
+        ssoLogout,
+        refreshSSOTokens,
+        ensureValidSSOToken,
+
+        // Local auth methods
         login,
         register,
         logout,
@@ -222,3 +512,4 @@ export function useAuth() {
         updatePreferences,
     }
 }
+

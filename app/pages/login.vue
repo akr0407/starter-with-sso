@@ -1,16 +1,18 @@
 <script setup lang="ts">
-import { NCard, NForm, NFormItem, NInput, NButton, NSpace, NGradientText, NAlert, NText, useMessage } from 'naive-ui'
+import { NCard, NForm, NFormItem, NInput, NButton, NSpace, NGradientText, NAlert, NText, NDivider, useMessage } from 'naive-ui'
 
 definePageMeta({
   layout: false,
 })
 
 const message = useMessage()
-const { login } = useAuth()
+const { login, ssoLogin } = useAuth()
 const router = useRouter()
+const route = useRoute()
 
 const formRef = ref()
 const loading = ref(false)
+const ssoLoading = ref(false)
 const formData = reactive({
   email: '',
   password: '',
@@ -32,6 +34,18 @@ function fillCredentials(email: string, password: string) {
   formData.password = password
 }
 
+async function handleSSOLogin() {
+  ssoLoading.value = true
+  try {
+    const redirect = route.query.redirect as string
+    await ssoLogin(redirect)
+  } catch (error: unknown) {
+    const errorMessage = error instanceof Error ? error.message : 'SSO login failed'
+    message.error(errorMessage)
+    ssoLoading.value = false
+  }
+}
+
 async function handleSubmit() {
   try {
     await formRef.value?.validate()
@@ -44,8 +58,9 @@ async function handleSubmit() {
     await login(formData.email, formData.password)
     message.success('Login successful!')
     router.push('/dashboard')
-  } catch (error: any) {
-    message.error(error?.data?.message || 'Login failed')
+  } catch (error: unknown) {
+    const err = error as { data?: { message?: string } }
+    message.error(err?.data?.message || 'Login failed')
   } finally {
     loading.value = false
   }
@@ -64,6 +79,29 @@ async function handleSubmit() {
         </div>
       </template>
       
+      <!-- SSO Login Button -->
+      <NButton 
+        block 
+        strong
+        secondary
+        :loading="ssoLoading"
+        @click="handleSSOLogin"
+        style="margin-bottom: 16px;"
+      >
+        <template #icon>
+          <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M15 3h4a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-4"></path>
+            <polyline points="10 17 15 12 10 7"></polyline>
+            <line x1="15" y1="12" x2="3" y2="12"></line>
+          </svg>
+        </template>
+        Login dengan SSO
+      </NButton>
+
+      <NDivider style="margin: 12px 0;">
+        <NText depth="3" style="font-size: 12px;">atau login dengan email</NText>
+      </NDivider>
+
       <NForm ref="formRef" :model="formData" :rules="rules">
         <NFormItem path="email" label="Email">
           <NInput v-model:value="formData.email" placeholder="you@example.com" />
