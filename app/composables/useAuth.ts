@@ -116,24 +116,18 @@ export function useAuth() {
     async function ssoLogin(returnUrl?: string) {
         if (import.meta.server) return
 
-        // Generate PKCE challenge (may be null if crypto.subtle unavailable)
-        const pkce = await generatePKCE()
-
         // Generate state and nonce (alphanumeric only to avoid URL encoding issues)
         const state = generateUrlSafeString(32)
         const nonce = generateUrlSafeString(32)
 
-        // Store PKCE and state in sessionStorage
-        if (pkce) {
-            sessionStorage.setItem('pkce_code_verifier', pkce.codeVerifier)
-        }
+        // Store state in sessionStorage
         sessionStorage.setItem('oauth_state', state)
         sessionStorage.setItem('oauth_nonce', nonce)
         if (returnUrl) {
             sessionStorage.setItem('return_url', returnUrl)
         }
 
-        // Build authorization URL
+        // Build authorization URL (without PKCE - SSO server doesn't support it)
         const authUrl = buildAuthUrl({
             baseUrl: config.public.sso.baseUrl,
             clientId: config.public.sso.clientId,
@@ -141,7 +135,7 @@ export function useAuth() {
             scopes: config.public.sso.scopes,
             state,
             nonce,
-            codeChallenge: pkce?.codeChallenge,
+            // codeChallenge: disabled - SSO server doesn't have PKCE enabled
         })
 
         // Redirect to SSO
@@ -162,66 +156,79 @@ export function useAuth() {
             throw new Error('Invalid state parameter')
         }
 
-        // Get PKCE verifier
-        const codeVerifier = sessionStorage.getItem('pkce_code_verifier')
-
         try {
-            // Exchange code for tokens via server-side API (keeps client_secret secure)
-            const tokenResponse = await $fetch<{
+            // Exchange code for tokens via server-side API
+            // Server now handles: SSO token exchange, user creation/lookup, local JWT generation
+            const response = await $fetch<{
+                // Local tokens for API authentication
                 access_token: string
                 refresh_token: string
-                id_token: string
                 expires_in: number
+                // SSO tokens for SSO operations (logout, etc.)
+                sso_access_token: string
+                sso_refresh_token: string
+                sso_id_token: string
+                sso_expires_in: number
+                // User data
+                user: User
+                sso_user: {
+                    sub: string
+                    email: string
+                    name: string
+                    employee_id?: string
+                    department?: string
+                    position?: string
+                    avatar_url?: string
+                    role_id?: string
+                    role_name?: string
+                }
             }>('/api/auth/sso/token', {
                 method: 'POST',
                 body: {
                     code,
                     redirectUri: config.public.sso.redirectUri,
-                    codeVerifier: codeVerifier || undefined,
                 },
             })
 
-            // Fetch user info
-            console.log('Token exchange successful, fetching user info...')
-            const userInfo = await fetchUserInfo(
-                config.public.sso.baseUrl,
-                tokenResponse.access_token
-            )
-            console.log('User info received:', userInfo)
+            console.log('SSO login successful, user:', response.user.email)
 
             // Prepare SSO user data
             const ssoUser: SSOUser = {
-                id: userInfo.sub,
-                email: userInfo.email,
-                name: userInfo.name,
-                employeeId: userInfo.employee_id,
-                department: userInfo.department,
-                position: userInfo.position,
-                avatarUrl: userInfo.avatar_url,
-                roleId: userInfo.role_id,
-                roleName: userInfo.role_name,
+                id: response.sso_user.sub,
+                email: response.sso_user.email,
+                name: response.sso_user.name,
+                employeeId: response.sso_user.employee_id,
+                department: response.sso_user.department,
+                position: response.sso_user.position,
+                avatarUrl: response.sso_user.avatar_url,
+                roleId: response.sso_user.role_id,
+                roleName: response.sso_user.role_name,
             }
 
             const ssoTokens = {
-                accessToken: tokenResponse.access_token,
-                refreshToken: tokenResponse.refresh_token,
-                idToken: tokenResponse.id_token,
-                expiresAt: Date.now() + tokenResponse.expires_in * 1000,
+                accessToken: response.sso_access_token,
+                refreshToken: response.sso_refresh_token,
+                idToken: response.sso_id_token,
+                expiresAt: Date.now() + response.sso_expires_in * 1000,
             }
 
-            // Save to state
+            // Save SSO state
             authState.ssoUser = ssoUser
             authState.ssoTokens = ssoTokens
             authState.isSSOAuth = true
-            console.log('SSO auth state saved:', { ssoUser, isSSOAuth: true })
+
+            // Save local auth state (for API calls)
+            authState.user = response.user
+            authState.accessToken = response.access_token
 
             // Persist to localStorage
             localStorage.setItem('sso_user', JSON.stringify(ssoUser))
             localStorage.setItem('sso_tokens', JSON.stringify(ssoTokens))
-            console.log('SSO data persisted to localStorage')
+            localStorage.setItem('accessToken', response.access_token)
+            localStorage.setItem('refreshToken', response.refresh_token)
+            console.log('Auth data persisted to localStorage')
 
             // Clean up session storage
-            sessionStorage.removeItem('pkce_code_verifier')
             sessionStorage.removeItem('oauth_state')
             sessionStorage.removeItem('oauth_nonce')
 
@@ -482,7 +489,7 @@ export function useAuth() {
         // State
         user: computed(() => authState.user),
         ssoUser: computed(() => authState.ssoUser),
-        accessToken: computed(() => authState.isSSOAuth ? authState.ssoTokens?.accessToken : authState.accessToken),
+        accessToken: computed(() => authState.accessToken), // Always use local JWT (SSO users also get local JWT)
         userPreferences: computed(() => authState.user?.preferences || {}),
         isAuthenticated,
         isAdmin,
